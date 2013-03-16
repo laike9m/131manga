@@ -68,7 +68,8 @@ class download:
                     #每下完一张图片，更新进度条
                     self.schedule += fractions.Fraction(1,self.sumofpages) #每次增加1/sumpages这么多
                     float_schedule = str(float(self.schedule))  #分数没法直接变成str，所以先变成float
-                    os.write(self.pipeout,float_schedule.encode())
+                    #import pydevd;pydevd.settrace()
+                    self.pipeout.send(float_schedule)
 
 class multiprodownload():
     #多线程下载类，通用

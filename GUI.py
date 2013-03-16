@@ -7,35 +7,37 @@ import tkinter.ttk as ttk
 import os
 from tkinter.filedialog import askdirectory
 import threading
+from multiprocessing import Process,Pipe
 import download_131
 
-class MyThread(threading.Thread):
+class MyDownloadProcess(Process):
     #使下载的时候不阻塞tk的正常loop
-    def __init__(self,url,dirname,webtype,showstate,pipeout):
+    def __init__(self,url,dirname,webtype,pipeout):
         self.url = url
         self.dir = dirname
-        self.showstate = showstate
         self.webtype = webtype
         self.pipeout = pipeout    #匿名管道的写入端
-        threading.Thread.__init__(self)
+        Process.__init__(self)
     def run(self):
-        #http://comic.131.com/content/shaonian/16117.html mowu
-        from time import clock
-        start = clock()
         test = download_131.download_131(self.url,self.dir,self.webtype,self.pipeout)
         test.finaldownload()
-        end = clock()
         os.system('rd /S /Q %s'%('.cache'))  #用系统命令删除cache文件夹
-        self.showstate['text'] = '下载完毕，共耗时%d秒'%(end-start)
         temp = '1000'
-        os.write(self.pipeout,temp.encode())
+        self.pipeout.send(temp)
 
-def progressbar(pipein,progress):
+def progressbar(pipein,progress,showstate):
+    from time import clock
+    k = 0
     while True:
-        schedule = float(os.read(pipein,32))
+        schedule = float(pipein.recv())
+        if schedule > 0 and k == 0:
+            k = 1
+            start = clock()
         if schedule <= 1:
             progress['value'] = 100 * schedule  #必须写['value']，.value不行
         else:
+            end = clock()
+            showstate['text'] = '下载完毕，共耗时%d秒'%(end-start)
             break
   
 
@@ -86,11 +88,12 @@ class GUI:
             self.showstate['text'] = '请选择漫画保存的路径'
             return
         
-        pipein,pipeout = os.pipe()
-        threading.Thread(target=progressbar,args=(pipein,self.progress)).start()
-        download_thr = MyThread(self.url.get(),self.dirname,'131',self.showstate,pipeout)
+        pipein,pipeout = Pipe()
+        threading.Thread(target=progressbar,args=(pipein,self.progress,self.showstate)).start()
+        download_process = MyDownloadProcess(self.url.get(),self.dirname,'131',pipeout)
         self.showstate['text'] = 'downloading……'
-        download_thr.start() #只要不用join，则不会阻塞原来的线程
+        download_process.start() #只要不用join，则不会阻塞原来的线程
+
         
 
 

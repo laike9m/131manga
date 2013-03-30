@@ -84,7 +84,7 @@ class download:
         parseE.feed(temppageurl)
         localfile = open(os.path.join(episodedir,key+'-'+getThreeDigit(i)+'.jpg'),'wb')#图片名：X话-i.jpg
         h = httplib2.Http('.cache')  #创建缓存目录，会自动清理
-        data = h.request(parseE.picurl,headers={'cache-control':'no-cache'})[1]
+        data = h.request(parseE.picurl)[1]
         localfile.write(data)
         localfile.close()
         self.schedule += fractions.Fraction(1,self.sumofpages) #每次增加1/sumpages这么多

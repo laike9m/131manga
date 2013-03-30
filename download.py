@@ -7,6 +7,8 @@ import httplib2
 import parse_131
 import fractions
 from assistfunc import getThreeDigit
+from concurrent import futures
+
 '''
 webtype:网站的类型，用来区分每一页的url命名规律
 131：  页面 = 相同部分/n.html,图片url得通过parse_131.parseEpisode找
@@ -47,30 +49,48 @@ class download:
                 os.mkdir(episodedir)
             if self.webtype == '131':
                 #处理131的下载
-                parseE = parse_131.parseEpisode()
+                parseE1 = parse_131.parseEpisode()
+                parseE2 = parse_131.parseEpisode()
+                parseE3 = parse_131.parseEpisode()
+                parseE4 = parse_131.parseEpisode()
                 temppageurl = self.manga[key][0]    #保存当前下载图片所在网页url
                 N = self.manga[key][1]              #页数
-                for i in range(1,N+1):
-                    #执行每一张图片的下载
-                    if i > 1:
-                        #更新当前下载图片所在网页url，算法是先以/分割，把最后一部分改成i.html，再拼起来
-                        parts = temppageurl.split('/')
-                        parts.pop()
-                        parts.append(str(i)+'.html')
-                        temppageurl = '/'.join(parts)
-                    parseE.feed(temppageurl)
-                    localfile = open(os.path.join(episodedir,key+'-'+getThreeDigit(i)+'.jpg'),'wb')#图片名：X话-i.jpg
-                    #httplib2.debuglevel = 1         #发送请求时显示
-                    h = httplib2.Http('.cache')  #创建缓存目录，会自动清理
-                    response,data = h.request(parseE.picurl)
-                    localfile.write(data)
-                    localfile.close()
-                    #每下完一张图片，更新进度条
-                    self.schedule += fractions.Fraction(1,self.sumofpages) #每次增加1/sumpages这么多
-                    float_schedule = str(float(self.schedule))  #分数没法直接变成str，所以先变成float
-                    #import pydevd;pydevd.settrace()
-                    self.pipeout.send(float_schedule)
 
+                '''用concurrent.futures下载'''
+                with futures.ThreadPoolExecutor(max_workers=4) as executor:
+                    for i in range(1,int((N+1)/4)):
+                        executor.submit(self.page_task,temppageurl,(i-1)*4+1,parseE1,episodedir,key)
+                        executor.submit(self.page_task,temppageurl,(i-1)*4+2,parseE2,episodedir,key)
+                        executor.submit(self.page_task,temppageurl,(i-1)*4+3,parseE3,episodedir,key)
+                        executor.submit(self.page_task,temppageurl,(i-1)*4+4,parseE4,episodedir,key)
+                    left = N+1-4*int((N+1)/4)   #余下的页数
+                    if left:
+                        if left == 1:
+                            executor.submit(self.page_task,temppageurl,N,parseE1,episodedir,key)
+                        elif left == 2:
+                            executor.submit(self.page_task,temppageurl,N-1,parseE1,episodedir,key)
+                            executor.submit(self.page_task,temppageurl,N,parseE2,episodedir,key)
+                        elif left == 3:
+                            executor.submit(self.page_task,temppageurl,N-2,parseE1,episodedir,key)
+                            executor.submit(self.page_task,temppageurl,N-1,parseE2,episodedir,key)
+                            executor.submit(self.page_task,temppageurl,N,parseE3,episodedir,key)
+                        
+    def page_task(self,temppageurl,i,parseE,episodedir,key):
+        '''为了用ThreadPoolExecutor,把每一页的下载写到一个函数里,看能不能加快速度'''
+        parts = temppageurl.split('/')
+        parts.pop()
+        parts.append(str(i)+'.html')
+        temppageurl = '/'.join(parts)
+        parseE.feed(temppageurl)
+        localfile = open(os.path.join(episodedir,key+'-'+getThreeDigit(i)+'.jpg'),'wb')#图片名：X话-i.jpg
+        h = httplib2.Http('.cache')  #创建缓存目录，会自动清理
+        data = h.request(parseE.picurl,headers={'cache-control':'no-cache'})[1]
+        localfile.write(data)
+        localfile.close()
+        self.schedule += fractions.Fraction(1,self.sumofpages) #每次增加1/sumpages这么多
+        float_schedule = str(float(self.schedule))  #分数没法直接变成str，所以先变成float
+        self.pipeout.send(float_schedule)
+        
 class multiprodownload():
     #多线程下载类，通用
     def __init__(self,comicname,manga,localdir,webtype,pipeout):
@@ -95,7 +115,7 @@ class multiprodownload():
                  {第1话:[url_1,pages_1],第2话:[url_2,pages_2]},   //分配给processor1
                  {第3话:[url_3,pages_3],第4话:[url_4,pages_4]}    //分配给processor2
                 ]
-                
+                不过现在这个函数实际上没有用了        
         '''
         self.mangaforprocessor = [] 
         average = self.numofepisode/self.numofprocessor
@@ -129,37 +149,13 @@ class multiprodownload():
                 count = count + 1
                 
     def multiprodownload(self):
-        '''
-        #多进程下载
-        self.update_mangaforprocessor()
-        pool = Pool(processes = self.numofprocessor if self.numofprocessor<=4 else 4)      
-        for i in range(self.numofprocessor):
-            pool.apply_async(self.download, (self.comicname,self.manga,self.localdir,self.webtype))
-        pool.close()
-        pool.join()
-        '''
-        #单进程下载，测试用
+        #单进程下载,实际到每一页会变成多线程
         self.download(self.comicname, self.manga, self.localdir, self.webtype,self.pipeout,self.sumofpages)
             
     def download(self,comicname,manga,localdir,webtype,pipeout,sumofpages):
         #单个进程的下载
-        #import pydevd;pydevd.settrace()
         d = download(comicname,manga,localdir,webtype,pipeout,sumofpages)
         d.download()
                 
 if __name__ == '__main__':
-    '''
-    test = download('魔物娘的(相伴)日常',
-                    {'第一话':['http://comic.131.com/content/16117/148636/1.html',29]},
-                     'dir',
-                    '131')
-    test.download()
-    '''
-    with open('testpage_manga.pickle','rb') as f:
-        manga = pickle.load(f)
-    print(manga)
-    testmulti = multiprodownload('魔物娘的(相伴)日常',
-                                 manga,
-                                 r'C:\Users\dell\Desktop',
-                                 '131')
-    testmulti.multiprodownload()
+    pass

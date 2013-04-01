@@ -7,10 +7,10 @@ from tkinter import font
 import tkinter.ttk as ttk
 import tkinter.messagebox as messagebox
 from PIL import Image,ImageTk
-import os
+import os,sys
 from tkinter.filedialog import askdirectory
 import threading
-from multiprocessing import Process,Pipe
+from multiprocessing import Process,Pipe,freeze_support
 import parse_131
 import httplib2
 import download_131
@@ -32,7 +32,9 @@ class MyDownloadProcess(Process):
         test.finaldownload()
         os.system('rd /S /Q %s'%('.cache'))  #用系统命令删除cache文件夹
         temp = '1000'
-        self.pipeout.send(temp)
+        self.pipeout.send(temp)        
+        sys.stdout.flush()   
+        sys.stderr.flush()
 
 class MyDownloadProcess_many(Process):
     #多部漫画下载进程
@@ -56,6 +58,8 @@ class MyDownloadProcess_many(Process):
                 temp = '100'
             self.pipeout.send(temp)
         os.system('rd /S /Q %s'%('.cache'))  #用系统命令删除cache文件夹
+        sys.stdout.flush()   
+        sys.stderr.flush()
 
 def progressbar(pipein,progress,showstate):
     from time import clock
@@ -379,7 +383,6 @@ class GUI:
             download_process = MyDownloadProcess(url,self.dirname,dontdownloadlist,'131',pipeout)
             self.showstate['text'] = 'downloading……'
             download_process.start() #只要不用join，则不会阻塞原来的线程
-
         elif self.notebook.select() == str(self.pane2):#多部漫画下载
             url_list = list(self.list.get(0,END))
             name_list = []  #存储漫画的名字,在显示提示行的时候用,让用户知道他在下的是哪一部漫画。
@@ -395,8 +398,5 @@ class GUI:
 
 
 if __name__ == '__main__':
-    '''
-        调试心得：
-        无法下载，最可能的问题是漫画的标题出现了心的关键字，比如‘本’
-    '''
+    freeze_support()
     gui = GUI()

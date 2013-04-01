@@ -95,7 +95,7 @@ class parse131(html.parser.HTMLParser):
             self.manga[data] = []   #保证它是一个list，如果直接写[data]的话会变成set！
             self.manga[data].append(self.templink)
             if self.comicname == '':
-                    self.comicname = self.tempname
+                self.comicname = self.tempname
             self.upto15 += 1
             if self.upto15 == 15:#到了上限,就需要开始另一个<ul>的检索
                 self.flag1 = 0
@@ -118,6 +118,8 @@ class parse131(html.parser.HTMLParser):
                     break
             if self.url in content:
                 if attrs[1][0] == 'title':#加这个限制条件,因为有时候右边栏有相同漫画的最新章节,也包含url
+                    self.flag2 = 1
+                elif len(attrs) > 2 and attrs[2][0] == 'title':#此情况是字体为红色的分卷,title在第三个
                     self.flag2 = 1
         
         '''寻找封面'''

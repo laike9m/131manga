@@ -58,12 +58,12 @@ class download:
 
                 '''用concurrent.futures下载'''
                 with futures.ThreadPoolExecutor(max_workers=4) as executor:
-                    for i in range(1,int((N+1)/4)):
+                    for i in range(1, 1+int(N/4)):
                         executor.submit(self.page_task,temppageurl,(i-1)*4+1,parseE1,episodedir,key)
                         executor.submit(self.page_task,temppageurl,(i-1)*4+2,parseE2,episodedir,key)
                         executor.submit(self.page_task,temppageurl,(i-1)*4+3,parseE3,episodedir,key)
                         executor.submit(self.page_task,temppageurl,(i-1)*4+4,parseE4,episodedir,key)
-                    left = N+1-4*int((N+1)/4)   #余下的页数
+                    left = N-4*int(N/4)   #余下的页数
                     if left:
                         if left == 1:
                             executor.submit(self.page_task,temppageurl,N,parseE1,episodedir,key)

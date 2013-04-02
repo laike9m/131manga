@@ -381,8 +381,10 @@ class GUI:
                 if not state:
                     dontdownloadlist.append(button['text'])
             download_process = MyDownloadProcess(url,self.dirname,dontdownloadlist,'131',pipeout)
+            download_process.daemon = True
             self.showstate['text'] = 'downloading……'
             download_process.start() #只要不用join，则不会阻塞原来的线程
+            
         elif self.notebook.select() == str(self.pane2):#多部漫画下载
             url_list = list(self.list.get(0,END))
             name_list = []  #存储漫画的名字,在显示提示行的时候用,让用户知道他在下的是哪一部漫画。
@@ -392,6 +394,7 @@ class GUI:
             pipein,pipeout = Pipe()
             threading.Thread(target=progressbar,daemon=True,args=(pipein,self.progress,self.showstate)).start()
             download_process = MyDownloadProcess_many(url_list,name_list,self.dirname,'131',pipeout)
+            download_process.daemon = True
             self.showstate['text'] = 'downloading……'
             download_process.start() 
 

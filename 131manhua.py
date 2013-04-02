@@ -86,7 +86,7 @@ def progressbar(pipein,progress,showstate):
 
 class GUI:
     def __init__(self):
-        self.edition = 2.0
+        self.edition = 2.01
         self.tk = Tk()
         self.notebook = ttk.Notebook(self.tk)
         self.notebook.grid(column=0,columnspan=2,row=0)

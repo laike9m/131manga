@@ -7,7 +7,7 @@ from tkinter import font
 import tkinter.ttk as ttk
 import tkinter.messagebox as messagebox
 from PIL import Image,ImageTk
-import os,sys
+import os
 from tkinter.filedialog import askdirectory
 import threading
 from multiprocessing import Process,Pipe,freeze_support
@@ -15,6 +15,8 @@ import parse_131
 import httplib2
 import download_131
 import webbrowser
+import systray
+import win32con
 
 class MyDownloadProcess(Process):
     #使下载的时候不阻塞tk的正常loop.单部漫画下载进程
@@ -33,7 +35,7 @@ class MyDownloadProcess(Process):
         os.system('rd /S /Q %s'%('.cache'))  #用系统命令删除cache文件夹
         temp = '1000'
         self.pipeout.send(temp)        
-        sys.stdout.flush()   
+        sys.stdout.flush()   #因为修改了process,所以这里可能要加这两句话.不确定,总之加上没报错
         sys.stderr.flush()
 
 class MyDownloadProcess_many(Process):
@@ -94,7 +96,7 @@ class GUI:
         self.pane2 = Frame(self.notebook)    #第二个pane是多部漫画下载
         self.tk.resizable(0, 0)
         self.tk.title('131漫画下载器')
-        self.tk.iconbitmap('icon2.ico')
+        self.tk.iconbitmap('icon.ico')
         self.dirname = ''
         
         self.notebook.add(self.pane1,text='单部漫画下载')
@@ -195,11 +197,23 @@ class GUI:
         self.showstate.config(text='若链接失效,请直接到帖子里下载')
     
     def winclose(self):
-        if messagebox.askokcancel("Quit", "退出131漫画下载?"):
-            if os.path.exists('cover.jpg'):
-                os.remove('cover.jpg')  #删除之前保存的封面图片
-            self.tk.destroy()
+        def Quit():   #如果要把类作为参数,直接传名字就好了,不用加模块名
+            if messagebox.askokcancel("Quit", "退出131漫画下载?"):
+                if os.path.exists('cover.jpg'):
+                    os.remove('cover.jpg')  #删除之前保存的封面图片
+                self.tk.destroy()
+        icon = 'img/tray.ico'
+        self.tk.withdraw()
+        def Show(SysTrayIcon):
+            SysTrayIcon.icon_exit_show_window()
     
+        hover_text = "131漫画下载器" + str(self.edition)  #鼠标移动到tray上,显示的文字
+        menu_options = (('恢复窗口', None, Show),   #systray里面会自动加上退出的选项
+                       )
+        #传入on_quit函数,如果点了菜单中默认的退出选项,则先执行on_quit,再执行默认的托盘退出过程
+        systray.SysTrayIcon(icon, self, hover_text, menu_options, on_quit=Quit, default_menu_index=0)
+
+        
     def watch_clipboard(self):  
         '''
         http://comic.131.com/content/shaonian/16051.html
